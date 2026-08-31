@@ -549,6 +549,25 @@ input[type="date"],
 }
 
 .quick-date-btn:hover { color: var(--text); background: var(--accent-soft); }
+
+.backup-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.backup-btn {
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.backup-btn:hover { color: var(--text); background: var(--accent-soft); }
 </style>
 </head>
 <body>
@@ -606,6 +625,11 @@ input[type="date"],
     </div>
 
     <footer class="app-footer">
+      <div class="backup-actions">
+        <button type="button" id="exportButton" class="backup-btn">エクスポート</button>
+        <button type="button" id="importButton" class="backup-btn">インポート</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
       <span id="storageWarning" class="storage-warning" hidden>※この端末では保存に失敗しています（プライベートブラウジング等をご確認ください）</span>
       <span>※データはこの端末・ブラウザにのみ保存されます</span>
     </footer>
@@ -649,7 +673,10 @@ input[type="date"],
     undoToast: document.getElementById('undoToast'),
     undoMessage: document.getElementById('undoMessage'),
     undoButton: document.getElementById('undoButton'),
-    categoryChips: document.getElementById('categoryChips')
+    categoryChips: document.getElementById('categoryChips'),
+    exportButton: document.getElementById('exportButton'),
+    importButton: document.getElementById('importButton'),
+    importFile: document.getElementById('importFile')
   };
 
   function uid() {
@@ -897,6 +924,74 @@ input[type="date"],
     render();
   }
 
+  function exportTasks() {
+    var data = { version: 1, exportedAt: new Date().toISOString(), tasks: tasks };
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'todo-backup-' + todayIso() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function sanitizeImportedTask(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    var title = String(raw.title || '').trim();
+    if (!title) return null;
+    var priority = ['high', 'mid', 'low'].indexOf(raw.priority) !== -1 ? raw.priority : 'mid';
+    var dueDate = (typeof raw.dueDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.dueDate)) ? raw.dueDate : null;
+    var completedAt = (typeof raw.completedAt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.completedAt)) ? raw.completedAt : null;
+    var category = String(raw.category || '').trim();
+    var done = !!raw.done;
+    if (!done) completedAt = null;
+    return {
+      id: uid(),
+      title: title,
+      dueDate: dueDate,
+      priority: priority,
+      category: category,
+      done: done,
+      completedAt: completedAt,
+      createdAt: (typeof raw.createdAt === 'string') ? raw.createdAt : new Date().toISOString()
+    };
+  }
+
+  function importTasksFromFile(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var parsed;
+      try {
+        parsed = JSON.parse(String(reader.result));
+      } catch (e) {
+        window.alert('ファイルの読み込みに失敗しました（JSON形式ではありません）。');
+        return;
+      }
+      var rawList = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.tasks) ? parsed.tasks : null);
+      if (!rawList) {
+        window.alert('対応していないファイル形式です。');
+        return;
+      }
+      var imported = rawList.map(sanitizeImportedTask).filter(Boolean);
+      if (imported.length === 0) {
+        window.alert('インポートできるタスクが見つかりませんでした。');
+        return;
+      }
+      var ok = window.confirm('現在のタスク（' + tasks.length + '件）を、インポートしたタスク（' + imported.length + '件）で置き換えます。よろしいですか？');
+      if (!ok) return;
+      tasks = imported;
+      editingId = null;
+      pendingUndo = null;
+      if (pendingUndoTimer) clearTimeout(pendingUndoTimer);
+      el.undoToast.hidden = true;
+      saveTasks();
+      render();
+    };
+    reader.readAsText(file);
+  }
+
   el.addForm.addEventListener('submit', function (e) {
     e.preventDefault();
     var title = el.newTitle.value.trim();
@@ -931,6 +1026,20 @@ input[type="date"],
 
   el.undoButton.addEventListener('click', function () {
     undoDelete();
+  });
+
+  el.exportButton.addEventListener('click', function () {
+    exportTasks();
+  });
+
+  el.importButton.addEventListener('click', function () {
+    el.importFile.click();
+  });
+
+  el.importFile.addEventListener('change', function () {
+    var file = el.importFile.files && el.importFile.files[0];
+    if (file) importTasksFromFile(file);
+    el.importFile.value = '';
   });
 
   document.addEventListener('click', function (e) {
