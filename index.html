@@ -457,10 +457,98 @@ input[type="date"],
   .quick-add input[type="text"],
   .quick-add input[type="date"],
   .quick-add select,
+  .quick-add .quick-date-buttons,
   .btn-add {
     flex: 1 1 100%;
   }
 }
+
+:root { --toast-bg: #1F2A33; --toast-text: #F3F4F6; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --toast-bg: #E4E8EA; --toast-text: #14181B; }
+}
+:root[data-theme="dark"] { --toast-bg: #E4E8EA; --toast-text: #14181B; }
+
+.undo-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--toast-bg);
+  color: var(--toast-text);
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  z-index: 100;
+  max-width: calc(100% - 32px);
+}
+
+.undo-toast[hidden] { display: none; }
+
+.undo-toast button {
+  flex: 0 0 auto;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--toast-text);
+  background: transparent;
+  border: 1px solid var(--toast-text);
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.category-chips:empty { display: none; margin-bottom: 0; }
+
+.category-chip {
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+
+.category-chip:hover { color: var(--text); }
+
+.category-chip.is-active {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.quick-date-buttons {
+  display: flex;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.quick-date-btn {
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.quick-date-btn:hover { color: var(--text); background: var(--accent-soft); }
 </style>
 </head>
 <body>
@@ -475,6 +563,11 @@ input[type="date"],
     <form id="addForm" class="quick-add" autocomplete="off">
       <input type="text" id="newTitle" placeholder="タスクを追加…" aria-label="タスク名" required>
       <input type="date" id="newDue" aria-label="期限日">
+      <div class="quick-date-buttons">
+        <button type="button" class="quick-date-btn" data-action="quickdate" data-value="today">今日</button>
+        <button type="button" class="quick-date-btn" data-action="quickdate" data-value="tomorrow">明日</button>
+        <button type="button" class="quick-date-btn" data-action="quickdate" data-value="week-end">今週末</button>
+      </div>
       <select id="newPriority" aria-label="優先度">
         <option value="high">優先度: 高</option>
         <option value="mid" selected>優先度: 中</option>
@@ -487,6 +580,7 @@ input[type="date"],
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input type="search" id="searchInput" placeholder="キーワードで絞り込み（タスク名・カテゴリ）" aria-label="キーワードで絞り込み">
     </div>
+    <div id="categoryChips" class="category-chips"></div>
 
     <div id="taskGroups" class="task-groups"></div>
 
@@ -505,6 +599,11 @@ input[type="date"],
         <ul class="task-list" id="completedTaskList"></ul>
       </div>
     </section>
+
+    <div id="undoToast" class="undo-toast" hidden role="status" aria-live="polite">
+      <span id="undoMessage"></span>
+      <button type="button" id="undoButton">取り消す</button>
+    </div>
 
     <footer class="app-footer">
       <span id="storageWarning" class="storage-warning" hidden>※この端末では保存に失敗しています（プライベートブラウジング等をご確認ください）</span>
@@ -527,6 +626,9 @@ input[type="date"],
   var searchQuery = '';
   var completedExpanded = false;
   var storageOk = true;
+  var pendingUndo = null;
+  var pendingUndoTimer = null;
+  var categoryFilter = null;
 
   var el = {
     pendingCount: document.getElementById('pendingCount'),
@@ -543,7 +645,11 @@ input[type="date"],
     completedCount: document.getElementById('completedCount'),
     completedList: document.getElementById('completedList'),
     completedTaskList: document.getElementById('completedTaskList'),
-    storageWarning: document.getElementById('storageWarning')
+    storageWarning: document.getElementById('storageWarning'),
+    undoToast: document.getElementById('undoToast'),
+    undoMessage: document.getElementById('undoMessage'),
+    undoButton: document.getElementById('undoButton'),
+    categoryChips: document.getElementById('categoryChips')
   };
 
   function uid() {
@@ -594,9 +700,11 @@ input[type="date"],
   }
 
   function pad2(n) { return n < 10 ? '0' + n : String(n); }
-  function todayIso() {
-    var d = new Date();
+  function isoOf(d) {
     return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+  function todayIso() {
+    return isoOf(new Date());
   }
 
   function endOfWeek(base) {
@@ -695,6 +803,7 @@ input[type="date"],
 
     var filtered = tasks.filter(function (t) {
       if (t.id === editingId) return true;
+      if (categoryFilter && t.category !== categoryFilter) return false;
       if (!q) return true;
       return t.title.toLowerCase().indexOf(q) !== -1 || (t.category || '').toLowerCase().indexOf(q) !== -1;
     });
@@ -705,6 +814,15 @@ input[type="date"],
     var completed = filtered.filter(function (t) { return t.done; });
 
     el.pendingCount.textContent = '未完了 ' + pendingAll.length + '件';
+
+    var catSet = {};
+    tasks.forEach(function (t) { if (t.category) catSet[t.category] = true; });
+    var categories = Object.keys(catSet).sort();
+    if (categoryFilter && categories.indexOf(categoryFilter) === -1) categoryFilter = null;
+    el.categoryChips.innerHTML = categories.map(function (cat) {
+      var active = cat === categoryFilter;
+      return '<button type="button" class="category-chip' + (active ? ' is-active' : '') + '" data-action="filter-category" data-category="' + escapeHtml(cat) + '">' + escapeHtml(cat) + '</button>';
+    }).join('');
 
     var buckets = { overdue: [], today: [], thisWeek: [], later: [], nodate: [] };
     pending.forEach(function (t) {
@@ -758,6 +876,27 @@ input[type="date"],
     return null;
   }
 
+  function showUndoToast(task) {
+    if (pendingUndoTimer) clearTimeout(pendingUndoTimer);
+    pendingUndo = { task: task };
+    el.undoMessage.textContent = '「' + task.title + '」を削除しました';
+    el.undoToast.hidden = false;
+    pendingUndoTimer = setTimeout(function () {
+      pendingUndo = null;
+      el.undoToast.hidden = true;
+    }, 5000);
+  }
+
+  function undoDelete() {
+    if (!pendingUndo) return;
+    if (pendingUndoTimer) clearTimeout(pendingUndoTimer);
+    tasks.push(pendingUndo.task);
+    pendingUndo = null;
+    el.undoToast.hidden = true;
+    saveTasks();
+    render();
+  }
+
   el.addForm.addEventListener('submit', function (e) {
     e.preventDefault();
     var title = el.newTitle.value.trim();
@@ -790,6 +929,10 @@ input[type="date"],
     render();
   });
 
+  el.undoButton.addEventListener('click', function () {
+    undoDelete();
+  });
+
   document.addEventListener('click', function (e) {
     var actionEl = e.target.closest('[data-action]');
     if (!actionEl) return;
@@ -799,15 +942,32 @@ input[type="date"],
     if (action === 'toggle') return;
 
     if (action === 'delete') {
+      var deletedTask = findTask(id);
       tasks = tasks.filter(function (t) { return t.id !== id; });
       if (editingId === id) editingId = null;
       saveTasks();
       render();
+      if (deletedTask) showUndoToast(deletedTask);
     } else if (action === 'edit-title') {
       startEditing(id);
     } else if (action === 'cancel-edit') {
       editingId = null;
       render();
+    } else if (action === 'filter-category') {
+      var clickedCategory = actionEl.dataset.category;
+      categoryFilter = (categoryFilter === clickedCategory) ? null : clickedCategory;
+      render();
+    } else if (action === 'quickdate') {
+      var today = new Date();
+      var target = new Date(today);
+      if (actionEl.dataset.value === 'tomorrow') {
+        target.setDate(today.getDate() + 1);
+      } else if (actionEl.dataset.value === 'week-end') {
+        var day = today.getDay();
+        var untilSunday = day === 0 ? 0 : 7 - day;
+        target.setDate(today.getDate() + untilSunday);
+      }
+      el.newDue.value = isoOf(target);
     }
   });
 
