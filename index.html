@@ -1,0 +1,862 @@
+<title>週次タスクボード</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #F3F4F6;
+  --surface: #FFFFFF;
+  --surface-2: #F8F9FA;
+  --text: #1F2A33;
+  --text-muted: #5B6B76;
+  --border: #DDE2E6;
+  --accent: #2B6E7A;
+  --accent-soft: #DCEAEA;
+  --danger: #B3453A;
+  --warn: #C08A2E;
+  --done: #6B7C6B;
+  --focus-ring: #2B6E7A;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14181B;
+    --surface: #1C2226;
+    --surface-2: #21282C;
+    --text: #E4E8EA;
+    --text-muted: #8B99A1;
+    --border: #2C343A;
+    --accent: #5FA8B3;
+    --accent-soft: #22383C;
+    --danger: #D9776B;
+    --warn: #E0AC5C;
+    --done: #8FA98F;
+    --focus-ring: #5FA8B3;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #14181B;
+  --surface: #1C2226;
+  --surface-2: #21282C;
+  --text: #E4E8EA;
+  --text-muted: #8B99A1;
+  --border: #2C343A;
+  --accent: #5FA8B3;
+  --accent-soft: #22383C;
+  --danger: #D9776B;
+  --warn: #E0AC5C;
+  --done: #8FA98F;
+  --focus-ring: #5FA8B3;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "IBM Plex Sans", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+
+.mono {
+  font-family: "IBM Plex Mono", "IBM Plex Sans", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 32px 16px 48px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+.app-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.app-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.count-badge {
+  font-family: "IBM Plex Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 4px 12px;
+  white-space: nowrap;
+}
+
+.quick-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.quick-add input[type="text"] {
+  flex: 1 1 180px;
+}
+
+.quick-add input[type="date"] {
+  flex: 0 1 150px;
+}
+
+.quick-add select {
+  flex: 0 1 110px;
+}
+
+input[type="text"],
+input[type="date"],
+input[type="search"],
+select {
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 10px;
+  min-width: 0;
+}
+
+input[type="date"],
+.mono {
+  font-family: "IBM Plex Mono", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.btn-add {
+  flex: 0 0 auto;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  padding: 9px 18px;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.btn-add:hover { filter: brightness(1.08); }
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 10px;
+  margin-bottom: 20px;
+}
+
+.search-bar svg {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+.search-bar input[type="search"] {
+  flex: 1 1 auto;
+  border: none;
+  background: transparent;
+  padding: 7px 0;
+}
+
+.search-bar input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+.task-groups { display: flex; flex-direction: column; gap: 18px; }
+
+.group-heading {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: 0.02em;
+  margin: 0 0 8px;
+  text-wrap: balance;
+}
+
+.group-count {
+  font-family: "IBM Plex Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+.task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--border);
+  transition: background-color 0.15s ease;
+}
+
+.task-list .task-row:last-child { border-bottom: none; }
+
+.task-row:hover { background: var(--surface-2); }
+
+.task-checkbox {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.priority-dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.priority-high { background: var(--danger); }
+.priority-mid { background: var(--warn); }
+.priority-low { background: var(--done); }
+
+.task-title {
+  flex: 1 1 auto;
+  min-width: 60px;
+  cursor: text;
+  border-radius: 4px;
+  padding: 2px 4px;
+  overflow-wrap: anywhere;
+}
+
+.task-title:hover { background: var(--accent-soft); }
+
+.task-row.is-done .task-title {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.due-date {
+  flex: 0 0 auto;
+  font-family: "IBM Plex Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.due-date.due-danger { color: var(--danger); font-weight: 500; }
+.due-date.due-warn { color: var(--warn); font-weight: 500; }
+
+.completed-date {
+  flex: 0 0 auto;
+  font-family: "IBM Plex Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+  color: var(--done);
+}
+
+.category-tag {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 2px 9px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-delete {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  opacity: 0.55;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.task-row:hover .btn-delete,
+.btn-delete:focus-visible {
+  opacity: 1;
+}
+
+.btn-delete:hover {
+  color: var(--danger);
+  background: var(--surface-2);
+}
+
+.edit-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 0;
+  align-items: center;
+}
+
+.edit-title-input { flex: 1 1 160px; }
+.edit-due-input { flex: 0 1 140px; }
+.edit-completed-input { flex: 0 1 140px; }
+.edit-priority-input { flex: 0 1 90px; }
+.edit-category-input { flex: 1 1 120px; }
+
+.edit-actions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 6px;
+}
+
+.btn-save,
+.btn-cancel {
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 7px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+}
+
+.btn-save {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.btn-cancel {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.empty-state,
+.no-results {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 36px 12px;
+  font-size: 0.92rem;
+}
+
+.completed-section {
+  margin-top: 22px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.completed-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 2px;
+  border-radius: 6px;
+}
+
+.completed-toggle:hover { color: var(--text); }
+
+.completed-toggle .chevron {
+  display: inline-flex;
+  transition: transform 0.2s ease;
+}
+
+.completed-toggle[aria-expanded="true"] .chevron {
+  transform: rotate(90deg);
+}
+
+.completed-toggle .badge {
+  font-family: "IBM Plex Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 1px 9px;
+  margin-left: auto;
+}
+
+.completed-list {
+  background: var(--surface-2);
+  border-radius: 10px;
+  margin-top: 8px;
+  padding: 4px 10px;
+}
+
+.completed-list[hidden] { display: none; }
+
+.app-footer {
+  margin-top: 24px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.storage-warning { color: var(--danger); }
+.storage-warning[hidden] { display: none; }
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .card { padding: 18px 14px; }
+  .quick-add input[type="text"],
+  .quick-add input[type="date"],
+  .quick-add select,
+  .btn-add {
+    flex: 1 1 100%;
+  }
+}
+</style>
+
+<div class="page">
+  <div class="card">
+    <header class="app-header">
+      <h1 class="app-title">週次タスクボード</h1>
+      <div class="count-badge mono" id="pendingCount">未完了 0件</div>
+    </header>
+
+    <form id="addForm" class="quick-add" autocomplete="off">
+      <input type="text" id="newTitle" placeholder="タスクを追加…" aria-label="タスク名" required>
+      <input type="date" id="newDue" aria-label="期限日">
+      <select id="newPriority" aria-label="優先度">
+        <option value="high">優先度: 高</option>
+        <option value="mid" selected>優先度: 中</option>
+        <option value="low">優先度: 低</option>
+      </select>
+      <button type="submit" class="btn-add">追加</button>
+    </form>
+
+    <div class="search-bar">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="search" id="searchInput" placeholder="キーワードで絞り込み（タスク名・カテゴリ）" aria-label="キーワードで絞り込み">
+    </div>
+
+    <div id="taskGroups" class="task-groups"></div>
+
+    <p id="emptyState" class="empty-state" hidden>台帳はきれいなまま。今のうちに一息どうぞ。</p>
+    <p id="noResults" class="no-results" hidden>該当するタスクは見つかりませんでした。</p>
+
+    <section class="completed-section" id="completedSection" hidden>
+      <button type="button" id="completedToggle" class="completed-toggle" aria-expanded="false" aria-controls="completedList">
+        <span class="chevron" aria-hidden="true">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="9 6 15 12 9 18"/></svg>
+        </span>
+        完了済み
+        <span class="badge mono" id="completedCount">0</span>
+      </button>
+      <div id="completedList" class="completed-list" hidden>
+        <ul class="task-list" id="completedTaskList"></ul>
+      </div>
+    </section>
+
+    <footer class="app-footer">
+      <span id="storageWarning" class="storage-warning" hidden>※この端末では保存に失敗しています（プライベートブラウジング等をご確認ください）</span>
+      <span>※データはこの端末・ブラウザにのみ保存されます</span>
+    </footer>
+  </div>
+</div>
+
+<script>
+(function () {
+  var STORAGE_KEY = 'fm-todo-v1';
+  var PRIORITY_WEIGHT = { high: 0, mid: 1, low: 2 };
+  var PRIORITY_LABEL = { high: '高', mid: '中', low: '低' };
+  var WEEKDAY = ['日', '月', '火', '水', '木', '金', '土'];
+  var GROUP_ORDER = ['overdue', 'today', 'thisWeek', 'later', 'nodate'];
+  var GROUP_LABEL = { overdue: '期限切れ', today: '今日', thisWeek: '今週', later: '来週以降', nodate: '期限なし' };
+
+  var tasks = [];
+  var editingId = null;
+  var searchQuery = '';
+  var completedExpanded = false;
+  var storageOk = true;
+
+  var el = {
+    pendingCount: document.getElementById('pendingCount'),
+    addForm: document.getElementById('addForm'),
+    newTitle: document.getElementById('newTitle'),
+    newDue: document.getElementById('newDue'),
+    newPriority: document.getElementById('newPriority'),
+    searchInput: document.getElementById('searchInput'),
+    taskGroups: document.getElementById('taskGroups'),
+    emptyState: document.getElementById('emptyState'),
+    noResults: document.getElementById('noResults'),
+    completedSection: document.getElementById('completedSection'),
+    completedToggle: document.getElementById('completedToggle'),
+    completedCount: document.getElementById('completedCount'),
+    completedList: document.getElementById('completedList'),
+    completedTaskList: document.getElementById('completedTaskList'),
+    storageWarning: document.getElementById('storageWarning')
+  };
+
+  function uid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+  }
+
+  function loadTasks() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      storageOk = false;
+      return [];
+    }
+  }
+
+  function saveTasks() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+      storageOk = true;
+    } catch (e) {
+      storageOk = false;
+    }
+    el.storageWarning.hidden = storageOk;
+  }
+
+  function escapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function todayOnly() {
+    var d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }
+
+  function parseDateOnly(iso) {
+    var parts = iso.split('-');
+    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  }
+
+  function pad2(n) { return n < 10 ? '0' + n : String(n); }
+  function todayIso() {
+    var d = new Date();
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+
+  function endOfWeek(base) {
+    var day = base.getDay();
+    var untilSunday = day === 0 ? 0 : 7 - day;
+    var end = new Date(base);
+    end.setDate(base.getDate() + untilSunday);
+    end.setHours(0, 0, 0, 0);
+    return end;
+  }
+
+  function fmtDate(iso) {
+    var d = parseDateOnly(iso);
+    return (d.getMonth() + 1) + '/' + d.getDate() + '(' + WEEKDAY[d.getDay()] + ')';
+  }
+
+  function groupOf(task, today, weekEnd) {
+    if (!task.dueDate) return 'nodate';
+    var due = parseDateOnly(task.dueDate);
+    if (due < today) return 'overdue';
+    if (due.getTime() === today.getTime()) return 'today';
+    if (due <= weekEnd) return 'thisWeek';
+    return 'later';
+  }
+
+  function dueClass(task, today) {
+    if (!task.dueDate) return '';
+    var due = parseDateOnly(task.dueDate);
+    var diffDays = Math.round((due - today) / 86400000);
+    if (diffDays < 0) return 'due-danger';
+    if (diffDays <= 3) return 'due-warn';
+    return '';
+  }
+
+  function sortTasks(list) {
+    return list.slice().sort(function (a, b) {
+      var pw = PRIORITY_WEIGHT[a.priority] - PRIORITY_WEIGHT[b.priority];
+      if (pw !== 0) return pw;
+      var av = a.dueDate ? parseDateOnly(a.dueDate).getTime() : Infinity;
+      var bv = b.dueDate ? parseDateOnly(b.dueDate).getTime() : Infinity;
+      return av - bv;
+    });
+  }
+
+  function renderTaskRow(task, today) {
+    if (task.id === editingId) return renderEditRow(task);
+    var dCls = dueClass(task, today);
+    var dueHtml = task.dueDate
+      ? '<span class="due-date mono ' + dCls + '">' + fmtDate(task.dueDate) + '</span>'
+      : '';
+    var completedHtml = (task.done && task.completedAt)
+      ? '<span class="completed-date mono">完了 ' + fmtDate(task.completedAt) + '</span>'
+      : '';
+    var catHtml = task.category
+      ? '<span class="category-tag">' + escapeHtml(task.category) + '</span>'
+      : '';
+    return '' +
+      '<li class="task-row' + (task.done ? ' is-done' : '') + '" data-id="' + task.id + '">' +
+        '<input type="checkbox" class="task-checkbox" data-action="toggle" data-id="' + task.id + '" ' + (task.done ? 'checked' : '') + ' aria-label="' + (task.done ? '未完了に戻す' : '完了にする') + '">' +
+        '<span class="priority-dot priority-' + task.priority + '" role="img" aria-label="優先度: ' + PRIORITY_LABEL[task.priority] + '" title="優先度: ' + PRIORITY_LABEL[task.priority] + '"></span>' +
+        '<span class="task-title" data-action="edit-title" data-id="' + task.id + '" tabindex="0" role="button" aria-label="タスク名を編集: ' + escapeHtml(task.title) + '">' + escapeHtml(task.title) + '</span>' +
+        dueHtml +
+        completedHtml +
+        catHtml +
+        '<button type="button" class="btn-delete" data-action="delete" data-id="' + task.id + '" aria-label="削除: ' + escapeHtml(task.title) + '">×</button>' +
+      '</li>';
+  }
+
+  function renderEditRow(task) {
+    var opts = ['high', 'mid', 'low'].map(function (p) {
+      return '<option value="' + p + '"' + (task.priority === p ? ' selected' : '') + '>' + PRIORITY_LABEL[p] + '</option>';
+    }).join('');
+    var completedInputHtml = task.done
+      ? '<input type="date" class="edit-completed-input mono" name="completedAt" value="' + (task.completedAt || '') + '" aria-label="完了日">'
+      : '';
+    return '' +
+      '<li class="task-row task-row-editing" data-id="' + task.id + '">' +
+        '<form class="edit-form" data-action="edit-form" data-id="' + task.id + '">' +
+          '<input type="text" class="edit-title-input" name="title" value="' + escapeHtml(task.title) + '" aria-label="タスク名" required>' +
+          '<input type="date" class="edit-due-input mono" name="due" value="' + (task.dueDate || '') + '" aria-label="期限日">' +
+          completedInputHtml +
+          '<select class="edit-priority-input" name="priority" aria-label="優先度">' + opts + '</select>' +
+          '<input type="text" class="edit-category-input" name="category" value="' + escapeHtml(task.category || '') + '" placeholder="カテゴリ（任意）" aria-label="カテゴリ">' +
+          '<div class="edit-actions">' +
+            '<button type="submit" class="btn-save">保存</button>' +
+            '<button type="button" class="btn-cancel" data-action="cancel-edit" data-id="' + task.id + '">取消</button>' +
+          '</div>' +
+        '</form>' +
+      '</li>';
+  }
+
+  function render() {
+    var today = todayOnly();
+    var weekEnd = endOfWeek(today);
+    var q = searchQuery.toLowerCase();
+
+    var filtered = tasks.filter(function (t) {
+      if (!q) return true;
+      return t.title.toLowerCase().indexOf(q) !== -1 || (t.category || '').toLowerCase().indexOf(q) !== -1;
+    });
+
+    var pendingAll = tasks.filter(function (t) { return !t.done; });
+    var pending = filtered.filter(function (t) { return !t.done; });
+    var completedAll = tasks.filter(function (t) { return t.done; });
+    var completed = filtered.filter(function (t) { return t.done; });
+
+    el.pendingCount.textContent = '未完了 ' + pendingAll.length + '件';
+
+    var buckets = { overdue: [], today: [], thisWeek: [], later: [], nodate: [] };
+    pending.forEach(function (t) {
+      buckets[groupOf(t, today, weekEnd)].push(t);
+    });
+
+    var groupsHtml = GROUP_ORDER.map(function (key) {
+      var list = sortTasks(buckets[key]);
+      if (list.length === 0) return '';
+      return '' +
+        '<section class="task-group">' +
+          '<h2 class="group-heading">' + GROUP_LABEL[key] + '<span class="group-count mono">（' + list.length + '）</span></h2>' +
+          '<ul class="task-list">' + list.map(function (t) { return renderTaskRow(t, today); }).join('') + '</ul>' +
+        '</section>';
+    }).join('');
+    el.taskGroups.innerHTML = groupsHtml;
+
+    el.emptyState.hidden = tasks.length !== 0;
+    el.noResults.hidden = !(tasks.length > 0 && filtered.length === 0);
+
+    if (completedAll.length === 0) {
+      el.completedSection.hidden = true;
+    } else {
+      el.completedSection.hidden = false;
+      el.completedCount.textContent = completed.length;
+      el.completedToggle.setAttribute('aria-expanded', String(completedExpanded));
+      el.completedList.hidden = !completedExpanded;
+      if (completedExpanded) {
+        var sortedCompleted = sortTasks(completed);
+        el.completedTaskList.innerHTML = sortedCompleted.map(function (t) { return renderTaskRow(t, today); }).join('');
+      } else {
+        el.completedTaskList.innerHTML = '';
+      }
+    }
+
+    if (editingId) {
+      var input = document.querySelector('.edit-title-input');
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    }
+  }
+
+  function findTask(id) {
+    for (var i = 0; i < tasks.length; i++) {
+      if (tasks[i].id === id) return tasks[i];
+    }
+    return null;
+  }
+
+  el.addForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var title = el.newTitle.value.trim();
+    if (!title) return;
+    tasks.push({
+      id: uid(),
+      title: title,
+      dueDate: el.newDue.value || null,
+      priority: el.newPriority.value || 'mid',
+      category: '',
+      done: false,
+      completedAt: null,
+      createdAt: new Date().toISOString()
+    });
+    saveTasks();
+    el.newTitle.value = '';
+    el.newDue.value = '';
+    el.newPriority.value = 'mid';
+    el.newTitle.focus();
+    render();
+  });
+
+  el.searchInput.addEventListener('input', function () {
+    searchQuery = el.searchInput.value.trim();
+    render();
+  });
+
+  el.completedToggle.addEventListener('click', function () {
+    completedExpanded = !completedExpanded;
+    render();
+  });
+
+  document.addEventListener('click', function (e) {
+    var actionEl = e.target.closest('[data-action]');
+    if (!actionEl) return;
+    var action = actionEl.dataset.action;
+    var id = actionEl.dataset.id;
+
+    if (action === 'toggle') return;
+
+    if (action === 'delete') {
+      tasks = tasks.filter(function (t) { return t.id !== id; });
+      if (editingId === id) editingId = null;
+      saveTasks();
+      render();
+    } else if (action === 'edit-title') {
+      editingId = id;
+      render();
+    } else if (action === 'cancel-edit') {
+      editingId = null;
+      render();
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    var target = e.target;
+    if (target.dataset && target.dataset.action === 'edit-title' && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      editingId = target.dataset.id;
+      render();
+      return;
+    }
+    if (e.key === 'Escape' && editingId) {
+      var form = target.closest && target.closest('[data-action="edit-form"]');
+      if (form) {
+        editingId = null;
+        render();
+      }
+    }
+  });
+
+  document.addEventListener('change', function (e) {
+    if (e.target.dataset && e.target.dataset.action === 'toggle') {
+      var task = findTask(e.target.dataset.id);
+      if (task) {
+        task.done = e.target.checked;
+        if (task.done) {
+          if (!task.completedAt) task.completedAt = todayIso();
+        } else {
+          task.completedAt = null;
+        }
+        saveTasks();
+        render();
+      }
+    }
+  });
+
+  document.addEventListener('submit', function (e) {
+    var form = e.target;
+    if (!form.dataset || form.dataset.action !== 'edit-form') return;
+    e.preventDefault();
+    var id = form.dataset.id;
+    var task = findTask(id);
+    if (!task) return;
+    var fd = new FormData(form);
+    var newTitle = String(fd.get('title') || '').trim();
+    if (newTitle) task.title = newTitle;
+    task.dueDate = String(fd.get('due') || '') || null;
+    var completedAtVal = fd.get('completedAt');
+    if (completedAtVal !== null) task.completedAt = String(completedAtVal) || null;
+    task.priority = String(fd.get('priority') || 'mid');
+    task.category = String(fd.get('category') || '').trim();
+    editingId = null;
+    saveTasks();
+    render();
+  });
+
+  tasks = loadTasks();
+  el.storageWarning.hidden = storageOk;
+  render();
+})();
+</script>
