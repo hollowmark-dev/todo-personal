@@ -1,3 +1,8 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>週次タスクボード</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -457,6 +462,8 @@ input[type="date"],
   }
 }
 </style>
+</head>
+<body>
 
 <div class="page">
   <div class="card">
@@ -687,6 +694,7 @@ input[type="date"],
     var q = searchQuery.toLowerCase();
 
     var filtered = tasks.filter(function (t) {
+      if (t.id === editingId) return true;
       if (!q) return true;
       return t.title.toLowerCase().indexOf(q) !== -1 || (t.category || '').toLowerCase().indexOf(q) !== -1;
     });
@@ -721,7 +729,7 @@ input[type="date"],
       el.completedSection.hidden = true;
     } else {
       el.completedSection.hidden = false;
-      el.completedCount.textContent = completed.length;
+      el.completedCount.textContent = completedAll.length;
       el.completedToggle.setAttribute('aria-expanded', String(completedExpanded));
       el.completedList.hidden = !completedExpanded;
       if (completedExpanded) {
@@ -731,13 +739,15 @@ input[type="date"],
         el.completedTaskList.innerHTML = '';
       }
     }
+  }
 
-    if (editingId) {
-      var input = document.querySelector('.edit-title-input');
-      if (input) {
-        input.focus();
-        input.select();
-      }
+  function startEditing(id) {
+    editingId = id;
+    render();
+    var input = document.querySelector('.edit-title-input');
+    if (input) {
+      input.focus();
+      input.select();
     }
   }
 
@@ -794,8 +804,7 @@ input[type="date"],
       saveTasks();
       render();
     } else if (action === 'edit-title') {
-      editingId = id;
-      render();
+      startEditing(id);
     } else if (action === 'cancel-edit') {
       editingId = null;
       render();
@@ -806,8 +815,7 @@ input[type="date"],
     var target = e.target;
     if (target.dataset && target.dataset.action === 'edit-title' && (e.key === 'Enter' || e.key === ' ')) {
       e.preventDefault();
-      editingId = target.dataset.id;
-      render();
+      startEditing(target.dataset.id);
       return;
     }
     if (e.key === 'Escape' && editingId) {
@@ -844,7 +852,12 @@ input[type="date"],
     if (!task) return;
     var fd = new FormData(form);
     var newTitle = String(fd.get('title') || '').trim();
-    if (newTitle) task.title = newTitle;
+    if (!newTitle) {
+      var titleInput = form.querySelector('.edit-title-input');
+      if (titleInput) titleInput.focus();
+      return;
+    }
+    task.title = newTitle;
     task.dueDate = String(fd.get('due') || '') || null;
     var completedAtVal = fd.get('completedAt');
     if (completedAtVal !== null) task.completedAt = String(completedAtVal) || null;
@@ -860,3 +873,5 @@ input[type="date"],
   render();
 })();
 </script>
+</body>
+</html>
